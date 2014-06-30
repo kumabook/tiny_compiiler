@@ -6,22 +6,20 @@ CC     = arm-none-eabi-gcc
 OBJCOPY= arm-none-eabi-objcopy
 SIZE   = arm-none-eabi-size
 
-
 # Project name
 PROJECT=$(STM_FW)/Project/Audio_playback_and_record
 BIN_NAME=tiny_synth
 OUTPATH=bin
+
+MEDIA_SOURCE=FLASH
+#MEDIA_SOURCE=USB
 
 # Sources
 SRC_DIR = $(PROJECT)/src
 SRCS = $(SRC_DIR)/main.c \
 	$(SRC_DIR)/stm32f4xx_it.c \
 	$(SRC_DIR)/system_stm32f4xx.c \
-	$(SRC_DIR)/waveplayer.c \
-	$(SRC_DIR)/waverecorder.c \
-	$(SRC_DIR)/usb_bsp.c \
-	$(SRC_DIR)/usbh_usr.c
-#	$(SRC_DIR)/audio_sample.c
+	$(SRC_DIR)/waveplayer.c
 
 # Library code
 SRCS += stm32f4xx_exti.c \
@@ -38,6 +36,12 @@ SRCS += stm32f4xx_exti.c \
 	stm32f4xx_i2c.c \
 	stm32f4xx_spi.c \
 	stm32f4xx_syscfg.c
+
+ifeq ($(MEDIA_SOURCE), USB)
+# USB client
+SRCS += $(SRC_DIR)/waverecorder.c \
+	$(SRC_DIR)/usb_bsp.c \
+	$(SRC_DIR)/usbh_usr.c
 # USB library
 SRCS += usb_core.c \
 	usb_hcd.c \
@@ -51,6 +55,9 @@ SRCS += usb_core.c \
 	usbh_msc_scsi.c
 # File system library
 SRCS += fattime.c ff.c
+else # Flash
+SRCS += $(SRC_DIR)/audio_sample.c
+endif
 
 # add startup file to build
 SRCS += $(STM_FW)/Libraries/CMSIS/ST/STM32F4xx/Source/Templates/TrueSTUDIO/startup_stm32f4xx.s 
@@ -62,23 +69,29 @@ SRCS += $(STM_FW)/Libraries/CMSIS/ST/STM32F4xx/Source/Templates/TrueSTUDIO/start
 CFLAGS = -ggdb -O0       # RSW - for GDB debugging, disable optimizer
 
 CFLAGS += -Wall
-CFLAGS += -T$(PROJECT)/TrueSTUDIO/MEDIA_InFLASH/stm32_flash.ld
+#CFLAGS += -T$(PROJECT)/TrueSTUDIO/MEDIA_InFLASH/stm32_flash.ld
+CFLAGS += -Tldscripts/stm32_flash.ld
 
 CFLAGS += -DUSE_STDPERIPH_DRIVER
 CFLAGS += -DSTM32F4XX
 #CFLAGS += -DUSE_ULPI_PHY
-#CFLAGS += -DUSE_USB_OTG_HS
-CFLAGS += -DUSE_USB_OTG_FS
-#CFLAGS += -DUSE_ACCURATE_TIME
-#CFLAGS += -DMEDIA_IntFLASH
-CFLAGS += -DMEDIA_USB_KEY
 
-ifeq ($(DEBUG),true)
+ifeq ($(MEDIA_SOURCE), USB)
+CFLAGS += -DUSE_USB_OTG_FS
+CFLAGS += -DMEDIA_USB_KEY
+#CFLAGS += -DUSE_USB_OTG_HS
+#CFLAGS += -DUSE_ACCURATE_TIME
+else
+CFLAGS += -DMEDIA_IntFLASH
+endif
+
+ifeq ($(DEBUG), true)
 CFLAGS += -DUSE_PRINTF
 endif
 
 CFLAGS += -mlittle-endian -mthumb -mthumb-interwork -mcpu=cortex-m4
-CFLAGS += -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+#CFLAGS += -mfpu=fpv4-sp-d16
+#-mfloat-abi=hard
 CFLAGS += -lc -lrdimon
 CFLAGS += --specs=rdimon.specs
 
@@ -97,14 +110,15 @@ CFLAGS += -I$(PROJECT)/inc/
 
 CFLAGS += -I$(STM_FW)/Libraries/CMSIS/ST/STM32F4xx/Include
 CFLAGS += -I$(STM_FW)/Libraries/CMSIS/Include
-
 CFLAGS += -I$(STM_FW)/Libraries/STM32F4xx_StdPeriph_Driver/inc
+CFLAGS += -I$(STM_FW)/Utilities/STM32F4-Discovery
+
+ifeq ($(MEDIA_SOURCE), USB)
 CFLAGS += -I$(STM_FW)/Libraries/STM32_USB_OTG_Driver/inc
 CFLAGS += -I$(STM_FW)/Libraries/STM32_USB_HOST_Library/Core/inc
 CFLAGS += -I$(STM_FW)/Libraries/STM32_USB_HOST_Library/Class/MSC/inc
-CFLAGS += -I$(STM_FW)/Utilities/STM32F4-Discovery
 CFLAGS += -I$(STM_FW)/Utilities/Third_Party/fat_fs/inc
-
+endif
 
 OBJS = $(SRCS:.c=.o)
 
